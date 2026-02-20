@@ -329,6 +329,23 @@ bot.command('reset', async (ctx) => {
   );
 });
 
+/**
+ * Start continuous typing indicator
+ * Returns a function to stop it
+ */
+function startTypingIndicator(ctx) {
+  // Send immediately
+  ctx.replyWithChatAction('typing').catch(() => {});
+  
+  // Then every 4 seconds (Telegram typing expires after ~5s)
+  const interval = setInterval(() => {
+    ctx.replyWithChatAction('typing').catch(() => {});
+  }, 4000);
+  
+  // Return stop function
+  return () => clearInterval(interval);
+}
+
 // Handle text messages
 bot.on('message:text', async (ctx) => {
   const userId = ctx.from?.id;
@@ -355,10 +372,10 @@ bot.on('message:text', async (ctx) => {
   
   processingUsers.add(lockKey);
   
+  // Start continuous typing indicator
+  const stopTyping = startTypingIndicator(ctx);
+  
   try {
-    // Send typing indicator
-    await ctx.replyWithChatAction('typing');
-    
     const sessionId = getSessionId(ctx);
     const workingDir = getRepoForChat(chatId, config.workingDirectory);
     
@@ -376,6 +393,7 @@ bot.on('message:text', async (ctx) => {
     console.error('Error processing text message:', error);
     await ctx.reply(`❌ Fehler: ${error.message}`);
   } finally {
+    stopTyping();
     processingUsers.delete(lockKey);
   }
 });
@@ -401,10 +419,10 @@ bot.on('message:voice', async (ctx) => {
   
   processingUsers.add(lockKey);
   
+  // Start continuous typing indicator
+  const stopTyping = startTypingIndicator(ctx);
+  
   try {
-    // Send typing indicator
-    await ctx.replyWithChatAction('typing');
-    
     // Acknowledge receipt
     const statusMsg = await ctx.reply('🎤 Transkribiere Sprachnachricht...');
     
@@ -439,6 +457,7 @@ bot.on('message:voice', async (ctx) => {
     console.error('Error processing voice message:', error);
     await ctx.reply(`❌ Fehler: ${error.message}`);
   } finally {
+    stopTyping();
     processingUsers.delete(lockKey);
   }
 });
