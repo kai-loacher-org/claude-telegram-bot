@@ -19,6 +19,7 @@ export async function executeClaudeCode(sessionId, query, options = {}) {
     const args = [
       '-r', sessionId,           // Resume session by name
       '-p', query,               // Print mode (non-interactive)
+      '--dangerously-skip-permissions',  // Skip permission prompts (required for bot)
     ];
     
     // Only specify model if explicitly configured
