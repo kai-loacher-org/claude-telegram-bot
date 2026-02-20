@@ -19,7 +19,8 @@ import {
   getRepoForChat, 
   getRepoInfo,
   removeRepoForChat,
-  hashRepoPath
+  hashRepoPath,
+  listDirectory
 } from './repos.js';
 
 // Validate configuration before starting
@@ -134,8 +135,9 @@ bot.command('start', async (ctx) => {
     `*Befehle:*\n` +
     `• Textnachricht → Claude Code antwortet\n` +
     `• Sprachnachricht → Transkription + Claude\n` +
-    `• \`/setrepo /pfad/zum/repo\` - Repo für diesen Chat setzen\n` +
+    `• \`/setrepo /pfad/zum/repo\` - Repo setzen\n` +
     `• \`/repo\` - Aktuelles Repo anzeigen\n` +
+    `• \`/ls\` - Dateien im Repo auflisten\n` +
     `• \`/status\` - Session-Info\n` +
     `• \`/reset\` - Neue Session\n\n` +
     `*Aktuelles Repo:* \`${repoPath}\`\n` +
@@ -234,6 +236,43 @@ bot.command('clearrepo', async (ctx) => {
     `\`${config.workingDirectory}\``,
     { parse_mode: 'Markdown' }
   );
+});
+
+// /ls command - List files in current repo
+bot.command('ls', async (ctx) => {
+  const userId = ctx.from?.id;
+  
+  if (!isUserAllowed(userId)) {
+    return;
+  }
+  
+  const chatId = ctx.chat?.id;
+  const repoPath = getRepoForChat(chatId, config.workingDirectory);
+  
+  try {
+    const { dirs, files } = listDirectory(repoPath);
+    
+    let response = `📂 *${repoPath}*\n\n`;
+    
+    if (dirs.length > 0) {
+      response += `*Ordner:*\n`;
+      response += dirs.map(d => `📁 \`${d}\``).join('\n');
+      response += '\n\n';
+    }
+    
+    if (files.length > 0) {
+      response += `*Dateien:*\n`;
+      response += files.map(f => `📄 \`${f}\``).join('\n');
+    }
+    
+    if (dirs.length === 0 && files.length === 0) {
+      response += '_(Verzeichnis ist leer)_';
+    }
+    
+    await ctx.reply(response, { parse_mode: 'Markdown' });
+  } catch (error) {
+    await ctx.reply(`❌ Fehler: ${error.message}`);
+  }
 });
 
 // /status command

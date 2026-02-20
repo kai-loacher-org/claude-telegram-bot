@@ -130,5 +130,38 @@ export function hashRepoPath(repoPath) {
     .substring(0, 8);
 }
 
+/**
+ * List files and directories in a path (non-recursive)
+ * 
+ * @param {string} dirPath - Directory to list
+ * @returns {object} { dirs: string[], files: string[] }
+ */
+export function listDirectory(dirPath) {
+  const { readdirSync } = require('fs');
+  const { join } = require('path');
+  
+  const entries = readdirSync(dirPath, { withFileTypes: true });
+  
+  const dirs = [];
+  const files = [];
+  
+  for (const entry of entries) {
+    // Skip hidden files/folders
+    if (entry.name.startsWith('.')) continue;
+    
+    if (entry.isDirectory()) {
+      dirs.push(entry.name + '/');
+    } else {
+      files.push(entry.name);
+    }
+  }
+  
+  // Sort alphabetically
+  dirs.sort();
+  files.sort();
+  
+  return { dirs, files };
+}
+
 // Load mappings on module import
 loadRepoMappings();
