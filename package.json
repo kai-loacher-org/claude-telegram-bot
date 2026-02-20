@@ -1,0 +1,27 @@
+{
+  "name": "claude-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram Bot for Claude Code CLI - Voice & Text messaging with session persistence",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "telegram",
+    "claude",
+    "claude-code",
+    "ai",
+    "voice",
+    "whisper"
+  ],
+  "author": "Max Loacher",
+  "license": "MIT",
+  "dependencies": {
+    "grammy": "^1.21.1",
+    "openai": "^4.28.0",
+    "dotenv": "^16.4.1",
+    "uuid": "^9.0.1"
+  }
+}
