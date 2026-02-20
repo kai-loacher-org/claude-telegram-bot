@@ -3,9 +3,8 @@
  * 
  * Maps Telegram chats to working directories (repos)
  */
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { statSync } from 'fs';
 import { createHash } from 'crypto';
 
 // Path to store chat->repo mappings
@@ -137,9 +136,6 @@ export function hashRepoPath(repoPath) {
  * @returns {object} { dirs: string[], files: string[] }
  */
 export function listDirectory(dirPath) {
-  const { readdirSync } = require('fs');
-  const { join } = require('path');
-  
   const entries = readdirSync(dirPath, { withFileTypes: true });
   
   const dirs = [];
