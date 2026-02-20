@@ -5,6 +5,7 @@
  */
 import { spawn } from 'child_process';
 import { config } from './config.js';
+import { getSessionUUID } from './sessions.js';
 
 /**
  * Execute a Claude Code query with session persistence
@@ -16,6 +17,9 @@ import { config } from './config.js';
  */
 export async function executeClaudeCode(sessionId, query, options = {}) {
   return new Promise((resolve, reject) => {
+    // Get or create UUID for this logical session
+    const sessionUUID = getSessionUUID(sessionId);
+    
     // Escape query for shell usage (double quotes)
     const escapedQuery = query
       .replace(/\\/g, '\\\\')   // Escape backslashes first
@@ -23,8 +27,8 @@ export async function executeClaudeCode(sessionId, query, options = {}) {
       .replace(/\$/g, '\\$')    // Escape dollar signs
       .replace(/`/g, '\\`');    // Escape backticks
     
-    // Build command with proper quoting
-    let cmd = `claude -r "${sessionId}" -p "${escapedQuery}" --dangerously-skip-permissions`;
+    // Build command with proper quoting - use --session-id with UUID
+    let cmd = `claude --session-id "${sessionUUID}" -p "${escapedQuery}" --dangerously-skip-permissions`;
     
     // Only specify model if explicitly configured
     if (config.claudeModel) {

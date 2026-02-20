@@ -22,12 +22,14 @@ import {
   hashRepoPath,
   listDirectory
 } from './repos.js';
+import { loadSessionMappings, resetSession, getSessionInfo } from './sessions.js';
 
 // Validate configuration before starting
 validateConfig();
 
-// Load repo mappings
+// Load repo and session mappings
 loadRepoMappings();
+loadSessionMappings();
 
 // Create bot instance
 const bot = new Bot(config.telegramToken);
@@ -310,21 +312,14 @@ bot.command('reset', async (ctx) => {
     return;
   }
   
-  const chatId = ctx.chat?.id;
-  const chatType = ctx.chat?.type;
-  
-  // Create new session ID with timestamp
-  let newSessionId;
-  if (chatType === 'private') {
-    newSessionId = `${config.sessionPrefix}-${userId}-${Date.now()}`;
-  } else {
-    newSessionId = `${config.sessionPrefix}-group-${chatId}-${Date.now()}`;
-  }
+  const sessionName = getSessionId(ctx);
+  const newUUID = resetSession(sessionName);
   
   await ctx.reply(
     `🔄 *Neue Session gestartet*\n\n` +
-    `Die vorherige Session bleibt erhalten.\n\n` +
-    `Neue Session: \`${newSessionId}\``,
+    `Session: \`${sessionName}\`\n` +
+    `Neue UUID: \`${newUUID.substring(0, 8)}...\`\n\n` +
+    `Claude Code hat jetzt keine Erinnerung mehr an vorherige Nachrichten.`,
     { parse_mode: 'Markdown' }
   );
 });
