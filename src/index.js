@@ -118,6 +118,35 @@ function getSessionId(ctx) {
   }
 }
 
+// Help text - used by /start and /help
+const helpText = `🤖 *Claude Code Telegram Bot*
+
+Ich bin deine Brücke zu Claude Code!
+
+*Nachrichten:*
+• Textnachricht → Claude Code antwortet
+• Sprachnachricht → Transkription + Claude
+
+*Befehle:*
+• \`/help\` - Diese Hilfe anzeigen
+• \`/setrepo /pfad\` - Repo für diesen Chat setzen
+• \`/repo\` - Aktuelles Repo anzeigen
+• \`/ls\` - Dateien im Repo auflisten
+• \`/status\` - Session-Info anzeigen
+• \`/reset\` - Neue Session starten
+• \`/clearrepo\` - Repo-Zuordnung entfernen`;
+
+// /help command
+bot.command('help', async (ctx) => {
+  const userId = ctx.from?.id;
+  
+  if (!isUserAllowed(userId)) {
+    return;
+  }
+  
+  await ctx.reply(helpText, { parse_mode: 'Markdown' });
+});
+
 // /start command
 bot.command('start', async (ctx) => {
   const userId = ctx.from?.id;
@@ -132,18 +161,7 @@ bot.command('start', async (ctx) => {
   const repoPath = getRepoForChat(chatId, config.workingDirectory);
   
   await ctx.reply(
-    `🤖 *Claude Code Telegram Bot*\n\n` +
-    `Ich bin deine Brücke zu Claude Code!\n\n` +
-    `*Befehle:*\n` +
-    `• Textnachricht → Claude Code antwortet\n` +
-    `• Sprachnachricht → Transkription + Claude\n` +
-    `• \`/setrepo /pfad/zum/repo\` - Repo setzen\n` +
-    `• \`/repo\` - Aktuelles Repo anzeigen\n` +
-    `• \`/ls\` - Dateien im Repo auflisten\n` +
-    `• \`/status\` - Session-Info\n` +
-    `• \`/reset\` - Neue Session\n\n` +
-    `*Aktuelles Repo:* \`${repoPath}\`\n` +
-    `*Session:* \`${getSessionId(ctx)}\``,
+    helpText + `\n\n*Aktuelles Repo:* \`${repoPath}\`\n*Session:* \`${getSessionId(ctx)}\``,
     { parse_mode: 'Markdown' }
   );
 });
