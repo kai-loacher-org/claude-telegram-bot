@@ -16,41 +16,34 @@ import { config } from './config.js';
  */
 export async function executeClaudeCode(sessionId, query, options = {}) {
   return new Promise((resolve, reject) => {
-    const args = [
-      '-r', sessionId,           // Resume session by name
-      '-p', query,               // Print mode (non-interactive)
-      '--dangerously-skip-permissions',  // Skip permission prompts (required for bot)
-    ];
+    // Escape query for shell usage (double quotes)
+    const escapedQuery = query
+      .replace(/\\/g, '\\\\')   // Escape backslashes first
+      .replace(/"/g, '\\"')     // Escape double quotes
+      .replace(/\$/g, '\\$')    // Escape dollar signs
+      .replace(/`/g, '\\`');    // Escape backticks
+    
+    // Build command with proper quoting
+    let cmd = `claude -r "${sessionId}" -p "${escapedQuery}" --dangerously-skip-permissions`;
     
     // Only specify model if explicitly configured
-    // Otherwise let Claude Code decide (uses Opus with automatic Sonnet fallback)
     if (config.claudeModel) {
-      args.push('--model', config.claudeModel);
+      cmd += ` --model ${config.claudeModel}`;
     }
     
-    // Add working directory if specified
-    if (options.workingDirectory || config.workingDirectory) {
-      // Claude Code uses current directory, so we'll set cwd in spawn
-    }
-    
-    // Add any additional flags
-    if (options.appendSystemPrompt) {
-      args.push('--append-system-prompt', options.appendSystemPrompt);
-    }
-    
-    console.log(`🤖 Executing: claude ${args.join(' ')}`);
+    console.log(`🤖 Executing: ${cmd.substring(0, 200)}...`);
     
     // Build environment - only include API key if explicitly set
-    // Otherwise Claude Code uses its local login (subscription)
     const spawnEnv = { ...process.env };
     if (config.anthropicApiKey) {
       spawnEnv.ANTHROPIC_API_KEY = config.anthropicApiKey;
     }
     
-    const claude = spawn('claude', args, {
+    // Use shell: true to properly handle quoted arguments
+    const claude = spawn(cmd, [], {
       cwd: options.workingDirectory || config.workingDirectory,
       env: spawnEnv,
-      // Increase buffer for long responses
+      shell: true,  // Use shell for proper quote handling
       maxBuffer: 1024 * 1024 * 10, // 10MB
     });
     
