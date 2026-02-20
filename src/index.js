@@ -249,13 +249,15 @@ bot.command('status', async (ctx) => {
   const repoPath = getRepoForChat(chatId, config.workingDirectory);
   const chatType = ctx.chat?.type;
   
+  const modelDisplay = config.claudeModel || 'auto (Opus → Sonnet fallback)';
+  
   await ctx.reply(
     `📊 *Status*\n\n` +
     `• Chat-Typ: \`${chatType}\`\n` +
     `• Chat-ID: \`${chatId}\`\n` +
     `• Session: \`${sessionId}\`\n` +
     `• Repo: \`${repoPath}\`\n` +
-    `• Model: \`${config.claudeModel}\`\n` +
+    `• Model: \`${modelDisplay}\`\n` +
     `• Voice Refinement: ${config.refineTranscripts ? '✅' : '❌'}`,
     { parse_mode: 'Markdown' }
   );

@@ -19,8 +19,13 @@ export async function executeClaudeCode(sessionId, query, options = {}) {
     const args = [
       '-r', sessionId,           // Resume session by name
       '-p', query,               // Print mode (non-interactive)
-      '--model', config.claudeModel,
     ];
+    
+    // Only specify model if explicitly configured
+    // Otherwise let Claude Code decide (uses Opus with automatic Sonnet fallback)
+    if (config.claudeModel) {
+      args.push('--model', config.claudeModel);
+    }
     
     // Add working directory if specified
     if (options.workingDirectory || config.workingDirectory) {

@@ -23,8 +23,8 @@ export const config = {
   // Working directory for Claude Code
   workingDirectory: process.env.WORKING_DIRECTORY || process.cwd(),
   
-  // Claude Code model
-  claudeModel: process.env.CLAUDE_MODEL || 'sonnet',
+  // Claude Code model (leave empty to let Claude Code decide - uses Opus with Sonnet fallback)
+  claudeModel: process.env.CLAUDE_MODEL || '',
   
   // Session prefix for naming
   sessionPrefix: process.env.SESSION_PREFIX || 'telegram',
