@@ -18,7 +18,8 @@ import {
   setRepoForChat, 
   getRepoForChat, 
   getRepoInfo,
-  removeRepoForChat 
+  removeRepoForChat,
+  hashRepoPath
 } from './repos.js';
 
 // Validate configuration before starting
@@ -96,18 +97,21 @@ async function sendResponse(ctx, text) {
 }
 
 /**
- * Get session ID that includes chat ID (for group support)
+ * Get session ID that includes chat ID AND repo path hash
+ * This ensures each repo has its own session context
  */
 function getSessionId(ctx) {
   const userId = ctx.from?.id;
   const chatId = ctx.chat?.id;
+  const repoPath = getRepoForChat(chatId, config.workingDirectory);
+  const repoHash = hashRepoPath(repoPath);
   
-  // For private chats, use user ID
-  // For groups, use chat ID so everyone in the group shares the session
+  // Session ID includes repo hash so switching repos = different session
+  // But switching back to same repo = same session restored!
   if (ctx.chat?.type === 'private') {
-    return createSessionId(userId);
+    return `${config.sessionPrefix}-${userId}-${repoHash}`;
   } else {
-    return `${config.sessionPrefix}-group-${chatId}`;
+    return `${config.sessionPrefix}-group-${chatId}-${repoHash}`;
   }
 }
 

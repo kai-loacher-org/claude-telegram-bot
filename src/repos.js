@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { statSync } from 'fs';
+import { createHash } from 'crypto';
 
 // Path to store chat->repo mappings
 const REPOS_FILE = join(process.cwd(), 'data', 'repos.json');
@@ -114,6 +115,19 @@ export function listRepoMappings() {
  */
 export function getRepoInfo(chatId) {
   return repoMappings[String(chatId)] || null;
+}
+
+/**
+ * Create a short hash of a repo path for session IDs
+ * 
+ * @param {string} repoPath - Repository path
+ * @returns {string} Short hash (8 chars)
+ */
+export function hashRepoPath(repoPath) {
+  return createHash('md5')
+    .update(repoPath)
+    .digest('hex')
+    .substring(0, 8);
 }
 
 // Load mappings on module import
