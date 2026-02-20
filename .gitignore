@@ -24,3 +24,7 @@ Thumbs.db
 # Temp files
 tmp/
 temp/
+
+# Data files (repo mappings, etc.)
+data/*.json
+!data/.gitkeep

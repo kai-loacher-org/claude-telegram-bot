@@ -5,15 +5,27 @@
  * 
  * A Telegram bot that provides access to Claude Code CLI
  * with voice message support and session persistence.
+ * 
+ * Supports multiple repos via different Telegram groups.
  */
 
 import { Bot, GrammyError, HttpError } from 'grammy';
 import { config, validateConfig } from './config.js';
 import { executeClaudeCode, createSessionId } from './claude.js';
 import { processVoiceMessage } from './whisper.js';
+import { 
+  loadRepoMappings, 
+  setRepoForChat, 
+  getRepoForChat, 
+  getRepoInfo,
+  removeRepoForChat 
+} from './repos.js';
 
 // Validate configuration before starting
 validateConfig();
+
+// Load repo mappings
+loadRepoMappings();
 
 // Create bot instance
 const bot = new Bot(config.telegramToken);
@@ -83,6 +95,22 @@ async function sendResponse(ctx, text) {
   }
 }
 
+/**
+ * Get session ID that includes chat ID (for group support)
+ */
+function getSessionId(ctx) {
+  const userId = ctx.from?.id;
+  const chatId = ctx.chat?.id;
+  
+  // For private chats, use user ID
+  // For groups, use chat ID so everyone in the group shares the session
+  if (ctx.chat?.type === 'private') {
+    return createSessionId(userId);
+  } else {
+    return `${config.sessionPrefix}-group-${chatId}`;
+  }
+}
+
 // /start command
 bot.command('start', async (ctx) => {
   const userId = ctx.from?.id;
@@ -92,15 +120,114 @@ bot.command('start', async (ctx) => {
     return;
   }
   
+  const chatId = ctx.chat?.id;
+  const repoInfo = getRepoInfo(chatId);
+  const repoPath = getRepoForChat(chatId, config.workingDirectory);
+  
   await ctx.reply(
     `🤖 *Claude Code Telegram Bot*\n\n` +
     `Ich bin deine Brücke zu Claude Code!\n\n` +
     `*Befehle:*\n` +
-    `• Schick mir eine Textnachricht → Claude Code antwortet\n` +
-    `• Schick mir eine Sprachnachricht → Wird transkribiert und an Claude gesendet\n` +
-    `• /status - Zeigt Session-Info\n` +
-    `• /reset - Startet neue Session\n\n` +
-    `*Session:* \`${createSessionId(userId)}\``,
+    `• Textnachricht → Claude Code antwortet\n` +
+    `• Sprachnachricht → Transkription + Claude\n` +
+    `• \`/setrepo /pfad/zum/repo\` - Repo für diesen Chat setzen\n` +
+    `• \`/repo\` - Aktuelles Repo anzeigen\n` +
+    `• \`/status\` - Session-Info\n` +
+    `• \`/reset\` - Neue Session\n\n` +
+    `*Aktuelles Repo:* \`${repoPath}\`\n` +
+    `*Session:* \`${getSessionId(ctx)}\``,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// /setrepo command - Set working directory for this chat
+bot.command('setrepo', async (ctx) => {
+  const userId = ctx.from?.id;
+  
+  if (!isUserAllowed(userId)) {
+    await ctx.reply('⛔ Du bist nicht berechtigt, diesen Bot zu verwenden.');
+    return;
+  }
+  
+  const chatId = ctx.chat?.id;
+  const args = ctx.message.text.split(' ').slice(1).join(' ').trim();
+  
+  if (!args) {
+    await ctx.reply(
+      '📂 *Repo setzen*\n\n' +
+      'Verwendung: `/setrepo /absoluter/pfad/zum/repo`\n\n' +
+      'Beispiel:\n' +
+      '`/setrepo /home/user/projects/my-app`',
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+  
+  try {
+    setRepoForChat(chatId, args);
+    await ctx.reply(
+      `✅ *Repo gesetzt!*\n\n` +
+      `Dieser Chat arbeitet jetzt in:\n` +
+      `\`${args}\`\n\n` +
+      `Alle Claude Code Befehle werden in diesem Verzeichnis ausgeführt.`,
+      { parse_mode: 'Markdown' }
+    );
+  } catch (error) {
+    await ctx.reply(
+      `❌ *Fehler beim Setzen des Repos*\n\n` +
+      `${error.message}\n\n` +
+      `Stelle sicher, dass der Pfad existiert und ein Verzeichnis ist.`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+});
+
+// /repo command - Show current repo
+bot.command('repo', async (ctx) => {
+  const userId = ctx.from?.id;
+  
+  if (!isUserAllowed(userId)) {
+    return;
+  }
+  
+  const chatId = ctx.chat?.id;
+  const repoInfo = getRepoInfo(chatId);
+  const repoPath = getRepoForChat(chatId, config.workingDirectory);
+  
+  if (repoInfo) {
+    await ctx.reply(
+      `📂 *Aktuelles Repo*\n\n` +
+      `Pfad: \`${repoInfo.path}\`\n` +
+      `Gesetzt am: ${new Date(repoInfo.setAt).toLocaleString('de-DE')}\n\n` +
+      `Ändern mit: \`/setrepo /neuer/pfad\``,
+      { parse_mode: 'Markdown' }
+    );
+  } else {
+    await ctx.reply(
+      `📂 *Kein Repo gesetzt*\n\n` +
+      `Dieser Chat verwendet das Standard-Verzeichnis:\n` +
+      `\`${repoPath}\`\n\n` +
+      `Setze ein Repo mit: \`/setrepo /pfad/zum/repo\``,
+      { parse_mode: 'Markdown' }
+    );
+  }
+});
+
+// /clearrepo command - Remove repo mapping
+bot.command('clearrepo', async (ctx) => {
+  const userId = ctx.from?.id;
+  
+  if (!isUserAllowed(userId)) {
+    return;
+  }
+  
+  const chatId = ctx.chat?.id;
+  removeRepoForChat(chatId);
+  
+  await ctx.reply(
+    `🗑️ *Repo-Zuordnung entfernt*\n\n` +
+    `Dieser Chat verwendet jetzt wieder das Standard-Verzeichnis:\n` +
+    `\`${config.workingDirectory}\``,
     { parse_mode: 'Markdown' }
   );
 });
@@ -113,13 +240,18 @@ bot.command('status', async (ctx) => {
     return;
   }
   
-  const sessionId = createSessionId(userId);
+  const chatId = ctx.chat?.id;
+  const sessionId = getSessionId(ctx);
+  const repoPath = getRepoForChat(chatId, config.workingDirectory);
+  const chatType = ctx.chat?.type;
   
   await ctx.reply(
     `📊 *Status*\n\n` +
+    `• Chat-Typ: \`${chatType}\`\n` +
+    `• Chat-ID: \`${chatId}\`\n` +
     `• Session: \`${sessionId}\`\n` +
+    `• Repo: \`${repoPath}\`\n` +
     `• Model: \`${config.claudeModel}\`\n` +
-    `• Working Dir: \`${config.workingDirectory}\`\n` +
     `• Voice Refinement: ${config.refineTranscripts ? '✅' : '❌'}`,
     { parse_mode: 'Markdown' }
   );
@@ -133,13 +265,20 @@ bot.command('reset', async (ctx) => {
     return;
   }
   
-  // Note: Claude Code doesn't have a delete session command,
-  // but we can use a new session ID with a timestamp
-  const newSessionId = `${config.sessionPrefix}-${userId}-${Date.now()}`;
+  const chatId = ctx.chat?.id;
+  const chatType = ctx.chat?.type;
+  
+  // Create new session ID with timestamp
+  let newSessionId;
+  if (chatType === 'private') {
+    newSessionId = `${config.sessionPrefix}-${userId}-${Date.now()}`;
+  } else {
+    newSessionId = `${config.sessionPrefix}-group-${chatId}-${Date.now()}`;
+  }
   
   await ctx.reply(
     `🔄 *Neue Session gestartet*\n\n` +
-    `Die vorherige Session bleibt erhalten, aber du startest jetzt mit einer neuen.\n\n` +
+    `Die vorherige Session bleibt erhalten.\n\n` +
     `Neue Session: \`${newSessionId}\``,
     { parse_mode: 'Markdown' }
   );
@@ -160,23 +299,30 @@ bot.on('message:text', async (ctx) => {
     return;
   }
   
-  // Prevent concurrent requests from same user
-  if (processingUsers.has(userId)) {
+  const chatId = ctx.chat?.id;
+  
+  // Prevent concurrent requests from same chat
+  const lockKey = `${chatId}`;
+  if (processingUsers.has(lockKey)) {
     await ctx.reply('⏳ Bitte warte, bis die vorherige Anfrage abgeschlossen ist...');
     return;
   }
   
-  processingUsers.add(userId);
+  processingUsers.add(lockKey);
   
   try {
     // Send typing indicator
     await ctx.replyWithChatAction('typing');
     
-    const sessionId = createSessionId(userId);
-    console.log(`📨 User ${userId} (${sessionId}): ${text.substring(0, 100)}...`);
+    const sessionId = getSessionId(ctx);
+    const workingDir = getRepoForChat(chatId, config.workingDirectory);
+    
+    console.log(`📨 Chat ${chatId} (${sessionId}) in ${workingDir}: ${text.substring(0, 100)}...`);
     
     // Execute Claude Code
-    const response = await executeClaudeCode(sessionId, text);
+    const response = await executeClaudeCode(sessionId, text, {
+      workingDirectory: workingDir,
+    });
     
     // Send response
     await sendResponse(ctx, response);
@@ -185,7 +331,7 @@ bot.on('message:text', async (ctx) => {
     console.error('Error processing text message:', error);
     await ctx.reply(`❌ Fehler: ${error.message}`);
   } finally {
-    processingUsers.delete(userId);
+    processingUsers.delete(lockKey);
   }
 });
 
@@ -199,13 +345,16 @@ bot.on('message:voice', async (ctx) => {
     return;
   }
   
+  const chatId = ctx.chat?.id;
+  
   // Prevent concurrent requests
-  if (processingUsers.has(userId)) {
+  const lockKey = `${chatId}`;
+  if (processingUsers.has(lockKey)) {
     await ctx.reply('⏳ Bitte warte, bis die vorherige Anfrage abgeschlossen ist...');
     return;
   }
   
-  processingUsers.add(userId);
+  processingUsers.add(lockKey);
   
   try {
     // Send typing indicator
@@ -225,11 +374,15 @@ bot.on('message:voice', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
     
-    const sessionId = createSessionId(userId);
-    console.log(`🎤 User ${userId} (${sessionId}): ${refined.substring(0, 100)}...`);
+    const sessionId = getSessionId(ctx);
+    const workingDir = getRepoForChat(chatId, config.workingDirectory);
+    
+    console.log(`🎤 Chat ${chatId} (${sessionId}) in ${workingDir}: ${refined.substring(0, 100)}...`);
     
     // Execute Claude Code with refined transcript
-    const response = await executeClaudeCode(sessionId, refined);
+    const response = await executeClaudeCode(sessionId, refined, {
+      workingDirectory: workingDir,
+    });
     
     // Delete status message
     await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id);
@@ -241,7 +394,7 @@ bot.on('message:voice', async (ctx) => {
     console.error('Error processing voice message:', error);
     await ctx.reply(`❌ Fehler: ${error.message}`);
   } finally {
-    processingUsers.delete(userId);
+    processingUsers.delete(lockKey);
   }
 });
 
@@ -267,7 +420,7 @@ bot.catch((err) => {
 
 // Start the bot
 console.log('🚀 Starting Claude Telegram Bot...');
-console.log(`📁 Working directory: ${config.workingDirectory}`);
+console.log(`📁 Default working directory: ${config.workingDirectory}`);
 console.log(`🤖 Model: ${config.claudeModel}`);
 console.log(`🔒 Allowed users: ${config.allowedUsers.length === 0 ? 'ALL' : config.allowedUsers.join(', ')}`);
 

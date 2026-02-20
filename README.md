@@ -8,6 +8,7 @@ A Telegram bot that provides mobile access to [Claude Code CLI](https://docs.ant
 - 🎤 **Voice Messages** - Record voice notes, automatically transcribed with Whisper
 - ✨ **Smart Transcription** - Removes stutters, filler words ("ähm", "also", etc.)
 - 🔄 **Session Persistence** - Continues conversation across messages
+- 📂 **Multi-Repo Support** - Different Telegram groups for different repositories
 - 🔒 **User Allowlist** - Restrict bot access to specific Telegram users
 - 📱 **Mobile-First** - Full Claude Code access from your phone
 
@@ -96,6 +97,9 @@ npm run dev
 | Command | Description |
 |---------|-------------|
 | `/start` | Welcome message and session info |
+| `/setrepo /path` | Set working directory for this chat |
+| `/repo` | Show current repo for this chat |
+| `/clearrepo` | Remove repo mapping (use default) |
 | `/status` | Show current session and config |
 | `/reset` | Start a new session |
 
@@ -129,6 +133,39 @@ Hold the microphone button and speak. The bot will:
 | `CLAUDE_MODEL` | Claude model (sonnet/opus/haiku) | sonnet |
 | `SESSION_PREFIX` | Prefix for session names | telegram |
 | `REFINE_TRANSCRIPTS` | Clean up voice transcriptions | true |
+
+## Multi-Repo Workflow
+
+The recommended workflow is to create **one Telegram group per repository**:
+
+### 1. Create a Telegram Group
+
+Create a new group for your project (e.g., "MyApp Development")
+
+### 2. Add the Bot
+
+Add your Claude bot to the group
+
+### 3. Set the Repository
+
+```
+/setrepo /home/user/projects/myapp
+```
+
+### 4. Work in Context
+
+All messages in that group now run Claude Code in the specified directory:
+
+```
+You: Add authentication to the API
+Claude: [works in /home/user/projects/myapp]
+```
+
+### Why Groups?
+
+- **Separation**: Each project has its own conversation history
+- **Team Access**: Add colleagues to the group
+- **Context**: Session history stays project-relevant
 
 ## Session Management
 
