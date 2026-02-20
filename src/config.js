@@ -11,8 +11,9 @@ export const config = {
   // OpenAI API Key (for Whisper transcription)
   openaiApiKey: process.env.OPENAI_API_KEY,
   
-  // Anthropic API Key (for Claude Code)
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  // Anthropic API Key (optional - only for pay-as-you-go)
+  // Leave empty to use Claude Code's local login (subscription)
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   
   // Allowed Telegram User IDs (comma-separated in env)
   // Leave empty to allow all users
@@ -38,7 +39,8 @@ export const config = {
 
 // Validate required config
 export function validateConfig() {
-  const required = ['telegramToken', 'openaiApiKey', 'anthropicApiKey'];
+  // Note: anthropicApiKey is NOT required - Claude Code uses local login (subscription)
+  const required = ['telegramToken', 'openaiApiKey'];
   const missing = required.filter(key => !config[key]);
   
   if (missing.length > 0) {

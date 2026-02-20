@@ -39,12 +39,16 @@ export async function executeClaudeCode(sessionId, query, options = {}) {
     
     console.log(`🤖 Executing: claude ${args.join(' ')}`);
     
+    // Build environment - only include API key if explicitly set
+    // Otherwise Claude Code uses its local login (subscription)
+    const spawnEnv = { ...process.env };
+    if (config.anthropicApiKey) {
+      spawnEnv.ANTHROPIC_API_KEY = config.anthropicApiKey;
+    }
+    
     const claude = spawn('claude', args, {
       cwd: options.workingDirectory || config.workingDirectory,
-      env: {
-        ...process.env,
-        ANTHROPIC_API_KEY: config.anthropicApiKey,
-      },
+      env: spawnEnv,
       // Increase buffer for long responses
       maxBuffer: 1024 * 1024 * 10, // 10MB
     });
@@ -119,9 +123,12 @@ export function createSessionId(userId) {
  */
 export async function listSessions() {
   return new Promise((resolve, reject) => {
-    const claude = spawn('claude', ['-r'], {
-      env: { ...process.env, ANTHROPIC_API_KEY: config.anthropicApiKey },
-    });
+    const spawnEnv = { ...process.env };
+    if (config.anthropicApiKey) {
+      spawnEnv.ANTHROPIC_API_KEY = config.anthropicApiKey;
+    }
+    
+    const claude = spawn('claude', ['-r'], { env: spawnEnv });
     
     let stdout = '';
     claude.stdout.on('data', (data) => stdout += data.toString());
