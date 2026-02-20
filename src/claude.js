@@ -36,6 +36,7 @@ export async function executeClaudeCode(sessionId, query, options = {}) {
     }
     
     console.log(`🤖 Executing: ${cmd.substring(0, 200)}...`);
+    console.log(`📂 Working dir: ${options.workingDirectory || config.workingDirectory}`);
     
     // Build environment - only include API key if explicitly set
     const spawnEnv = { ...process.env };
@@ -48,21 +49,28 @@ export async function executeClaudeCode(sessionId, query, options = {}) {
       cwd: options.workingDirectory || config.workingDirectory,
       env: spawnEnv,
       shell: true,  // Use shell for proper quote handling
-      maxBuffer: 1024 * 1024 * 10, // 10MB
     });
     
     let stdout = '';
     let stderr = '';
     
     claude.stdout.on('data', (data) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      stdout += chunk;
+      console.log(`📤 stdout chunk: ${chunk.substring(0, 100)}`);
     });
     
     claude.stderr.on('data', (data) => {
-      stderr += data.toString();
+      const chunk = data.toString();
+      stderr += chunk;
+      console.log(`📥 stderr chunk: ${chunk.substring(0, 100)}`);
     });
     
     claude.on('close', (code) => {
+      console.log(`🏁 Claude Code exited with code ${code}`);
+      console.log(`📤 Total stdout: ${stdout.length} bytes`);
+      console.log(`📥 Total stderr: ${stderr.length} bytes`);
+      
       if (code === 0) {
         // Clean up the response
         const response = cleanClaudeResponse(stdout);
@@ -70,17 +78,25 @@ export async function executeClaudeCode(sessionId, query, options = {}) {
       } else {
         console.error(`Claude Code exited with code ${code}`);
         console.error('stderr:', stderr);
-        reject(new Error(`Claude Code failed: ${stderr || 'Unknown error'}`));
+        reject(new Error(`Claude Code failed: ${stderr || stdout || 'Unknown error'}`));
       }
     });
     
     claude.on('error', (err) => {
+      console.error(`❌ Spawn error: ${err.message}`);
       reject(new Error(`Failed to start Claude Code: ${err.message}`));
     });
     
+    // Log that process started
+    console.log(`⏳ Process PID: ${claude.pid}`);
+    
+    // Close stdin to signal no more input
+    claude.stdin.end();
+    
     // Timeout after 5 minutes
     const timeout = setTimeout(() => {
-      claude.kill();
+      console.log(`⏰ Timeout reached, killing process ${claude.pid}`);
+      claude.kill('SIGKILL');
       reject(new Error('Claude Code timed out after 5 minutes'));
     }, 5 * 60 * 1000);
     
