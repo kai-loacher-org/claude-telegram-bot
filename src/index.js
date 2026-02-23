@@ -11,7 +11,7 @@
 
 import { Bot, GrammyError, HttpError } from 'grammy';
 import { config, validateConfig } from './config.js';
-import { executeClaudeCode, createSessionId } from './claude.js';
+import { executeClaudeCode } from './claude.js';
 import { processVoiceMessage } from './whisper.js';
 import { 
   loadRepoMappings, 
@@ -22,14 +22,12 @@ import {
   hashRepoPath,
   listDirectory
 } from './repos.js';
-import { loadSessionMappings, resetSession, getSessionInfo } from './sessions.js';
 
 // Validate configuration before starting
 validateConfig();
 
-// Load repo and session mappings
+// Load repo mappings
 loadRepoMappings();
-loadSessionMappings();
 
 // Create bot instance
 const bot = new Bot(config.telegramToken);
@@ -330,14 +328,15 @@ bot.command('reset', async (ctx) => {
     return;
   }
   
-  const sessionName = getSessionId(ctx);
-  const newUUID = resetSession(sessionName);
+  const chatId = ctx.chat?.id;
+  const repoPath = getRepoForChat(chatId, config.workingDirectory);
   
   await ctx.reply(
-    `🔄 *Neue Session gestartet*\n\n` +
-    `Session: \`${sessionName}\`\n` +
-    `Neue UUID: \`${newUUID.substring(0, 8)}...\`\n\n` +
-    `Claude Code hat jetzt keine Erinnerung mehr an vorherige Nachrichten.`,
+    `ℹ️ *Session-Info*\n\n` +
+    `Sessions werden pro Arbeitsverzeichnis gespeichert.\n\n` +
+    `Aktuelles Repo: \`${repoPath}\`\n\n` +
+    `Um die Session zu "resetten", sag Claude einfach:\n` +
+    `_"Vergiss den bisherigen Kontext und starte frisch."_`,
     { parse_mode: 'Markdown' }
   );
 });

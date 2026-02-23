@@ -119,31 +119,5 @@ function cleanClaudeResponse(response) {
     .trim();
 }
 
-/**
- * Create a new session for a user
- * 
- * @param {number} userId - Telegram user ID
- * @returns {string} Session ID
- */
-export function createSessionId(userId) {
-  return `${config.sessionPrefix}-${userId}`;
-}
-
-/**
- * List available sessions (for debugging)
- */
-export async function listSessions() {
-  return new Promise((resolve, reject) => {
-    const spawnEnv = { ...process.env };
-    if (config.anthropicApiKey) {
-      spawnEnv.ANTHROPIC_API_KEY = config.anthropicApiKey;
-    }
-    
-    const claude = spawn('claude', ['-r'], { env: spawnEnv });
-    
-    let stdout = '';
-    claude.stdout.on('data', (data) => stdout += data.toString());
-    claude.on('close', () => resolve(stdout));
-    claude.on('error', reject);
-  });
-}
+// Note: Sessions are now managed per working directory using --continue
+// No explicit session IDs needed
